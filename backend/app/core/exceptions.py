@@ -30,6 +30,21 @@ class ValidationFailedError(AppError):
     error_code = "validation_failed"
 
 
+class UnsupportedFileTypeError(AppError):
+    status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    error_code = "unsupported_file_type"
+
+
+class FileTooLargeError(AppError):
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    error_code = "file_too_large"
+
+
+class CorruptDocumentError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    error_code = "corrupt_document"
+
+
 def _error_response(status_code: int, error_code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,

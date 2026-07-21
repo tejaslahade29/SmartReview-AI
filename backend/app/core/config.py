@@ -21,6 +21,9 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
+    DOCUMENT_STORAGE_DIR: str = "./storage/documents"
+    MAX_UPLOAD_SIZE_MB: int = 25
+
 
 @lru_cache
 def get_settings() -> Settings:
