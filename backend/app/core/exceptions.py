@@ -45,6 +45,27 @@ class CorruptDocumentError(AppError):
     error_code = "corrupt_document"
 
 
+class ClaudeServiceError(AppError):
+    """Raised when the Claude API is unreachable or fails after retries."""
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    error_code = "claude_service_error"
+
+
+class ClaudeRefusalError(AppError):
+    """Raised when Claude declines to review the document."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    error_code = "claude_refused"
+
+
+class ClaudeResponseInvalidError(AppError):
+    """Raised when Claude's response cannot be parsed as the expected structured findings."""
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    error_code = "claude_response_invalid"
+
+
 def _error_response(status_code: int, error_code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,

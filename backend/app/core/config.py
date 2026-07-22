@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     DOCUMENT_STORAGE_DIR: str = "./storage/documents"
     MAX_UPLOAD_SIZE_MB: int = 25
 
+    ANTHROPIC_API_KEY: str | None = None
+    CLAUDE_MODEL: str = "claude-opus-4-8"
+    CLAUDE_MAX_TOKENS: int = 8000
+    CLAUDE_TIMEOUT_SECONDS: float = 120.0
+    CLAUDE_MAX_RETRIES: int = 2
+
 
 @lru_cache
 def get_settings() -> Settings:

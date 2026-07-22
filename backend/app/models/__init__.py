@@ -10,3 +10,4 @@ from app.models.document import (  # noqa: F401
     DocumentSection,
     DocumentTable,
 )
+from app.models.review import Review, ReviewFinding  # noqa: F401
