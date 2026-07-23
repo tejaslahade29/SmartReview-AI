@@ -80,6 +80,12 @@ class DocumentParagraph(Base):
     location: Mapped[str] = mapped_column(String(20))
     paragraph_type: Mapped[str] = mapped_column(String(20))
     order_index: Mapped[int] = mapped_column(Integer)
+    # Position of this paragraph in the parser's single deterministic
+    # traversal of the document (0..N-1), independent of location/order_index
+    # ties. Re-parsing the original file yields paragraphs in this exact same
+    # sequence, which is how Module 4 relocates a paragraph_id without ever
+    # searching by text.
+    sequence_index: Mapped[int] = mapped_column(Integer)
 
     row_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     col_index: Mapped[int | None] = mapped_column(Integer, nullable=True)

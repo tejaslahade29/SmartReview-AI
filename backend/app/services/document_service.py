@@ -58,7 +58,7 @@ def _persist_parsed_document(
         db.flush()
         table_id_by_index[parsed_table.order_index] = table.id
 
-    for parsed_paragraph in parsed.paragraphs:
+    for sequence_index, parsed_paragraph in enumerate(parsed.paragraphs):
         db.add(
             DocumentParagraph(
                 document_id=document.id,
@@ -71,6 +71,7 @@ def _persist_parsed_document(
                 location=parsed_paragraph.location.value,
                 paragraph_type=parsed_paragraph.paragraph_type.value,
                 order_index=parsed_paragraph.order_index,
+                sequence_index=sequence_index,
                 row_index=parsed_paragraph.row_index,
                 col_index=parsed_paragraph.col_index,
                 heading_level=parsed_paragraph.heading_level,

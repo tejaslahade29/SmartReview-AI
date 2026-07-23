@@ -11,3 +11,4 @@ from app.models.document import (  # noqa: F401
     DocumentTable,
 )
 from app.models.review import Review, ReviewFinding  # noqa: F401
+from app.models.reviewed_document import ReviewedDocument  # noqa: F401

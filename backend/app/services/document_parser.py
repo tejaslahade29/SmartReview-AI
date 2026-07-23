@@ -55,6 +55,11 @@ class ParsedParagraph:
     table_index: int | None = None
     row_index: int | None = None
     col_index: int | None = None
+    # Transient reference to the live python-docx paragraph this was built from.
+    # Not persisted — lets Module 4 re-parse the original file and locate the
+    # exact lxml element for a paragraph_id via DocumentParagraph.sequence_index,
+    # without ever searching by text.
+    source: DocxParagraph | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -164,6 +169,7 @@ def _build_paragraph(
         table_index=table_index,
         row_index=row_index,
         col_index=col_index,
+        source=paragraph,
     )
 
 
@@ -227,12 +233,14 @@ def _parse_header_footer(
     return paragraphs
 
 
-def parse_docx(content: bytes) -> ParsedDocument:
+def _open_docx(content: bytes) -> DocxDocument:
     try:
-        docx_document = DocxDocument(io.BytesIO(content))
+        return DocxDocument(io.BytesIO(content))
     except (PackageNotFoundError, KeyError, ValueError, zipfile.BadZipFile) as exc:
         raise CorruptDocumentError("The uploaded file is not a valid DOCX document.") from exc
 
+
+def _parse_opened_document(docx_document: DocxDocument) -> ParsedDocument:
     parsed = ParsedDocument()
 
     for section_index, section in enumerate(docx_document.sections):
@@ -277,3 +285,17 @@ def parse_docx(content: bytes) -> ParsedDocument:
             block_index += 1
 
     return parsed
+
+
+def parse_docx(content: bytes) -> ParsedDocument:
+    return _parse_opened_document(_open_docx(content))
+
+
+def open_and_parse(content: bytes) -> tuple[DocxDocument, ParsedDocument]:
+    """Like parse_docx, but also returns the live DocxDocument that the
+    parsed paragraphs' `.source` elements belong to. Callers that need to
+    mutate and re-save the same tree (Module 4) must use this instead of
+    parse_docx, which discards the document after building the dataclasses.
+    """
+    docx_document = _open_docx(content)
+    return docx_document, _parse_opened_document(docx_document)
