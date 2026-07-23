@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/contract_review
       JWT_SECRET_KEY: change-me-in-production
       CORS_ORIGINS: '["http://localhost:3000"]'
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
