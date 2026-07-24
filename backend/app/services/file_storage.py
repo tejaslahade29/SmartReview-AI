@@ -7,6 +7,7 @@ for object storage later should not require changing the parser or models.
 from pathlib import Path
 
 from app.core.config import get_settings
+from app.core.exceptions import NotFoundError
 
 
 def save_document_file(document_id: str, content: bytes) -> str:
@@ -34,4 +35,10 @@ def save_reviewed_document_file(document_id: str, version: int, content: bytes) 
 
 
 def read_file(storage_path: str) -> bytes:
-    return Path(storage_path).read_bytes()
+    try:
+        return Path(storage_path).read_bytes()
+    except FileNotFoundError as exc:
+        raise NotFoundError(
+            "The stored file is missing. It may have been lost if the server's storage "
+            "was reset without the database — please regenerate it."
+        ) from exc

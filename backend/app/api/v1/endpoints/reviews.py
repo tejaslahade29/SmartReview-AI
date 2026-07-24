@@ -22,3 +22,9 @@ def create_review(document_id: str, db: Session = Depends(get_db)) -> ReviewSche
 def get_review(review_id: str, db: Session = Depends(get_db)) -> ReviewSchema:
     review = review_engine.get_review(db, review_id)
     return ReviewSchema.model_validate(review)
+
+
+@router.get("/documents/{document_id}/reviews", response_model=list[ReviewSchema])
+def list_reviews_for_document(document_id: str, db: Session = Depends(get_db)) -> list[ReviewSchema]:
+    reviews = review_engine.list_reviews_for_document(db, document_id)
+    return [ReviewSchema.model_validate(review) for review in reviews]

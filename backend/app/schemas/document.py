@@ -18,6 +18,29 @@ class DocumentSummary(BaseModel):
     created_at: datetime
 
 
+class DocumentListItem(BaseModel):
+    """DocumentSummary plus a cheap, pre-joined review status — lets the
+    Documents table and Dashboard render without an N+1 fetch per row."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    status: str
+    section_count: int
+    table_count: int
+    paragraph_count: int
+    word_count: int
+    created_at: datetime
+
+    agreement_type: str | None = None
+    latest_review_id: str | None = None
+    review_status: str | None = None
+    has_reviewed_document: bool = False
+
+
 class RunSchema(BaseModel):
     text: str
     bold: bool

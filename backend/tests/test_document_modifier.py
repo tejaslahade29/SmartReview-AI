@@ -242,3 +242,22 @@ def test_get_unknown_reviewed_document_returns_404():
 
     response = client.get("/api/v1/reviewed-documents/does-not-exist/download")
     assert response.status_code == 404
+
+
+def test_list_reviewed_documents_for_document_is_newest_version_first(monkeypatch):
+    document_id, review_id, _ = _upload_and_review(monkeypatch)
+
+    client.post(f"/api/v1/reviews/{review_id}/reviewed-document")
+    client.post(f"/api/v1/reviews/{review_id}/reviewed-document")
+
+    response = client.get(f"/api/v1/documents/{document_id}/reviewed-documents")
+    assert response.status_code == 200
+    items = response.json()
+    assert len(items) == 2
+    assert items[0]["version"] == 2
+    assert items[1]["version"] == 1
+
+
+def test_list_reviewed_documents_for_unknown_document_returns_404():
+    response = client.get("/api/v1/documents/does-not-exist/reviewed-documents")
+    assert response.status_code == 404

@@ -330,3 +330,54 @@ def test_review_api_creates_and_retrieves_review(monkeypatch):
 def test_review_api_returns_404_for_unknown_review():
     response = client.get("/api/v1/reviews/does-not-exist")
     assert response.status_code == 404
+
+
+def test_list_reviews_for_document(monkeypatch):
+    upload_response = client.post(
+        "/api/v1/documents",
+        files={
+            "file": (
+                "nda2.docx",
+                _build_sample_docx(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    document_id = upload_response.json()["id"]
+
+    structure = client.get(f"/api/v1/documents/{document_id}/structure").json()
+    target_paragraph = next(
+        p for p in structure["paragraphs"]
+        if p["location"] == "body" and p["paragraph_type"] != "heading" and "terminate" in p["text"]
+    )
+
+    fake_response = _FakeResponse(
+        content=[
+            _FakeTextBlock(
+                text=(
+                    '{"findings": [{"finding_id": "f1", '
+                    f'"paragraph_id": "{target_paragraph["id"]}", '
+                    '"issue_type": "termination_imbalance", "severity": "high", '
+                    '"explanation": "One-sided.", "suggested_text": "fix", "confidence": 0.8}]}'
+                )
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        review_engine, "default_claude_service", ClaudeService(client=_FakeAnthropicClient(fake_response))
+    )
+
+    review_response = client.post(f"/api/v1/documents/{document_id}/review")
+    review_id = review_response.json()["id"]
+
+    list_response = client.get(f"/api/v1/documents/{document_id}/reviews")
+    assert list_response.status_code == 200
+    reviews = list_response.json()
+    assert len(reviews) == 1
+    assert reviews[0]["id"] == review_id
+    assert len(reviews[0]["findings"]) == 1
+
+
+def test_list_reviews_for_unknown_document_returns_404():
+    response = client.get("/api/v1/documents/does-not-exist/reviews")
+    assert response.status_code == 404

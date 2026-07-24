@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.document import DocumentStructure, DocumentSummary
+from app.schemas.document import DocumentListItem, DocumentStructure, DocumentSummary
 from app.services import document_service
 
 router = APIRouter()
@@ -16,6 +16,11 @@ async def upload_document(
     content = await file.read()
     document = document_service.process_upload(db, file.filename or "upload.docx", content)
     return DocumentSummary.model_validate(document)
+
+
+@router.get("", response_model=list[DocumentListItem])
+def list_documents(db: Session = Depends(get_db)) -> list[DocumentListItem]:
+    return [DocumentListItem.model_validate(item) for item in document_service.list_documents(db)]
 
 
 @router.get("/{document_id}", response_model=DocumentSummary)

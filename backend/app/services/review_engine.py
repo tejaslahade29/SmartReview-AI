@@ -103,3 +103,14 @@ def get_review(db: Session, review_id: str) -> Review:
     if review is None:
         raise NotFoundError(f"Review '{review_id}' was not found.")
     return review
+
+
+def list_reviews_for_document(db: Session, document_id: str) -> list[Review]:
+    document_service.get_document(db, document_id)  # raises NotFoundError if missing
+    return (
+        db.query(Review)
+        .options(selectinload(Review.findings))
+        .filter(Review.document_id == document_id)
+        .order_by(Review.created_at.desc())
+        .all()
+    )

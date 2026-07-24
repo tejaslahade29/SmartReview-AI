@@ -144,3 +144,32 @@ def test_retrieve_document_and_structure_with_stable_ids() -> None:
 def test_retrieve_unknown_document_returns_404() -> None:
     response = client.get("/api/v1/documents/does-not-exist")
     assert response.status_code == 404
+
+
+def test_list_documents_carries_review_status() -> None:
+    content = _build_sample_docx()
+    upload_response = client.post(
+        "/api/v1/documents",
+        files={
+            "file": (
+                "sample3.docx",
+                content,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    document_id = upload_response.json()["id"]
+
+    list_response = client.get("/api/v1/documents")
+    assert list_response.status_code == 200
+    items = list_response.json()
+
+    # SQLite's created_at only has second resolution, so exact ordering
+    # against documents uploaded by earlier tests in this module isn't
+    # reliable here (Postgres uses microsecond precision in practice) —
+    # just confirm this document is present with correctly joined fields.
+    match = next(item for item in items if item["id"] == document_id)
+    assert match["agreement_type"] is None
+    assert match["latest_review_id"] is None
+    assert match["review_status"] is None
+    assert match["has_reviewed_document"] is False

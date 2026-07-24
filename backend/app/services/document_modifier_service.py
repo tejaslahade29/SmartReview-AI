@@ -112,6 +112,16 @@ def generate_reviewed_document(db: Session, review_id: str) -> ReviewedDocument:
     return reviewed_document
 
 
+def list_reviewed_documents_for_document(db: Session, document_id: str) -> list[ReviewedDocument]:
+    document_service.get_document(db, document_id)  # raises NotFoundError if missing
+    return (
+        db.query(ReviewedDocument)
+        .filter(ReviewedDocument.document_id == document_id)
+        .order_by(ReviewedDocument.version.desc())
+        .all()
+    )
+
+
 def get_reviewed_document(db: Session, reviewed_document_id: str) -> ReviewedDocument:
     reviewed_document = db.get(ReviewedDocument, reviewed_document_id)
     if reviewed_document is None:

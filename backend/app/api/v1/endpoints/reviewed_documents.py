@@ -21,6 +21,14 @@ def generate_reviewed_document(review_id: str, db: Session = Depends(get_db)) ->
     return ReviewedDocumentSchema.model_validate(reviewed_document)
 
 
+@router.get(
+    "/documents/{document_id}/reviewed-documents", response_model=list[ReviewedDocumentSchema]
+)
+def list_reviewed_documents(document_id: str, db: Session = Depends(get_db)) -> list[ReviewedDocumentSchema]:
+    reviewed_documents = document_modifier_service.list_reviewed_documents_for_document(db, document_id)
+    return [ReviewedDocumentSchema.model_validate(item) for item in reviewed_documents]
+
+
 @router.get("/reviewed-documents/{reviewed_document_id}", response_model=ReviewedDocumentSchema)
 def get_reviewed_document(
     reviewed_document_id: str, db: Session = Depends(get_db)

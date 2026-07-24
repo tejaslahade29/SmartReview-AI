@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.core.exceptions import FileTooLargeError, NotFoundError, UnsupportedFileTypeError
 from app.models.document import Document, DocumentParagraph, DocumentSection, DocumentTable
+from app.models.review import Review
+from app.models.reviewed_document import ReviewedDocument
 from app.services import file_storage
 from app.services.document_parser import ParsedDocument, parse_docx
 
@@ -112,6 +114,58 @@ def process_upload(db: Session, filename: str, content: bytes) -> Document:
     document.storage_path = storage_path
 
     return _persist_parsed_document(db, document, parsed)
+
+
+def list_documents(db: Session) -> list[dict]:
+    """Documents ordered newest-first, each pre-joined with its latest
+    review's status/agreement_type and whether a reviewed DOCX exists —
+    everything the Documents table and Dashboard need in one query pass.
+    """
+    documents = db.query(Document).order_by(Document.created_at.desc()).all()
+    if not documents:
+        return []
+
+    document_ids = [document.id for document in documents]
+
+    latest_review_by_document: dict[str, Review] = {}
+    reviews = (
+        db.query(Review)
+        .filter(Review.document_id.in_(document_ids))
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+    for review in reviews:
+        latest_review_by_document.setdefault(review.document_id, review)
+
+    reviewed_document_ids = {
+        row[0]
+        for row in db.query(ReviewedDocument.document_id)
+        .filter(ReviewedDocument.document_id.in_(document_ids))
+        .distinct()
+    }
+
+    items: list[dict] = []
+    for document in documents:
+        latest_review = latest_review_by_document.get(document.id)
+        items.append(
+            {
+                "id": document.id,
+                "original_filename": document.original_filename,
+                "content_type": document.content_type,
+                "size_bytes": document.size_bytes,
+                "status": document.status,
+                "section_count": document.section_count,
+                "table_count": document.table_count,
+                "paragraph_count": document.paragraph_count,
+                "word_count": document.word_count,
+                "created_at": document.created_at,
+                "agreement_type": latest_review.agreement_type if latest_review else None,
+                "latest_review_id": latest_review.id if latest_review else None,
+                "review_status": latest_review.status if latest_review else None,
+                "has_reviewed_document": document.id in reviewed_document_ids,
+            }
+        )
+    return items
 
 
 def get_document(db: Session, document_id: str) -> Document:
