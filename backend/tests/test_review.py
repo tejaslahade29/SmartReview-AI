@@ -7,13 +7,20 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.exceptions import ClaudeRefusalError, ClaudeResponseInvalidError
+from app.core.exceptions import (
+    AIRefusalError,
+    AIResponseInvalidError,
+    ClaudeRefusalError,
+    ClaudeResponseInvalidError,
+)
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.document import DocumentParagraph
 from app.services import agreement_detector, party_normalization_service, review_engine
 from app.services.claude_service import ClaudeReviewResult, ClaudeService
+from app.services.gemini_service import GeminiReviewResult, GeminiService, _to_gemini_schema
+from app.services.prompt_builder import FINDINGS_JSON_SCHEMA
 from app.services.review_validator import validate_findings
 
 _engine = create_engine("sqlite:///./test_review.db", connect_args={"check_same_thread": False})
@@ -213,6 +220,99 @@ def test_claude_service_raises_on_truncated_response():
 
 
 # ---------------------------------------------------------------------------
+# Gemini service (free-tier alternative, same interface as ClaudeService)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _FakeGeminiUsage:
+    prompt_token_count: int = 10
+    candidates_token_count: int = 20
+
+
+@dataclass
+class _FakeGeminiCandidate:
+    finish_reason: str = "STOP"
+
+
+@dataclass
+class _FakeGeminiResponse:
+    text: str | None = "{}"
+    candidates: list = field(default_factory=lambda: [_FakeGeminiCandidate()])
+    usage_metadata: _FakeGeminiUsage = field(default_factory=_FakeGeminiUsage)
+
+
+class _FakeGeminiModels:
+    def __init__(self, response: _FakeGeminiResponse) -> None:
+        self._response = response
+
+    def generate_content(self, **kwargs):
+        return self._response
+
+
+class _FakeGenaiClient:
+    def __init__(self, response: _FakeGeminiResponse) -> None:
+        self.models = _FakeGeminiModels(response)
+
+
+def test_gemini_service_parses_valid_structured_response():
+    response = _FakeGeminiResponse(
+        text='{"findings": [{"finding_id": "f1", "paragraph_id": "p1", '
+        '"issue_type": "liability", "severity": "high", "explanation": "one-sided", '
+        '"suggested_text": "text", "confidence": 0.9}]}'
+    )
+    service = GeminiService(client=_FakeGenaiClient(response))
+
+    result = service.review_clauses(system="sys", user_message="user", json_schema=FINDINGS_JSON_SCHEMA)
+
+    assert isinstance(result, GeminiReviewResult)
+    assert result.findings[0]["finding_id"] == "f1"
+    assert result.input_tokens == 10
+    assert result.output_tokens == 20
+
+
+def test_gemini_service_raises_on_refusal():
+    response = _FakeGeminiResponse(text=None, candidates=[_FakeGeminiCandidate(finish_reason="SAFETY")])
+    service = GeminiService(client=_FakeGenaiClient(response))
+
+    with pytest.raises(AIRefusalError):
+        service.review_clauses(system="sys", user_message="user", json_schema={})
+
+
+def test_gemini_service_raises_on_invalid_json():
+    response = _FakeGeminiResponse(text="not json")
+    service = GeminiService(client=_FakeGenaiClient(response))
+
+    with pytest.raises(AIResponseInvalidError):
+        service.review_clauses(system="sys", user_message="user", json_schema={})
+
+
+def test_gemini_service_raises_on_truncated_response():
+    response = _FakeGeminiResponse(text="{}", candidates=[_FakeGeminiCandidate(finish_reason="MAX_TOKENS")])
+    service = GeminiService(client=_FakeGenaiClient(response))
+
+    with pytest.raises(AIResponseInvalidError):
+        service.review_clauses(system="sys", user_message="user", json_schema={})
+
+
+def test_gemini_schema_translation_strips_unsupported_keys():
+    translated = _to_gemini_schema(FINDINGS_JSON_SCHEMA)
+
+    findings_items = translated["properties"]["findings"]["items"]
+    assert "additionalProperties" not in translated
+    assert "additionalProperties" not in findings_items
+    assert findings_items["properties"]["suggested_text"]["type"] == "string"
+
+
+def test_resolve_default_service_honors_ai_provider_setting(monkeypatch):
+    monkeypatch.setattr(review_engine.get_settings(), "AI_PROVIDER", "claude")
+    assert review_engine._resolve_default_service() is review_engine.default_claude_service
+
+    monkeypatch.setattr(review_engine.get_settings(), "AI_PROVIDER", "gemini")
+    assert review_engine._resolve_default_service() is review_engine.default_gemini_service
+
+
+# ---------------------------------------------------------------------------
 # Review validator
 # ---------------------------------------------------------------------------
 
@@ -307,7 +407,7 @@ def test_review_api_creates_and_retrieves_review(monkeypatch):
         ],
     )
     fake_service = ClaudeService(client=_FakeAnthropicClient(fake_response))
-    monkeypatch.setattr(review_engine, "default_claude_service", fake_service)
+    monkeypatch.setattr(review_engine, "_resolve_default_service", lambda: fake_service)
 
     review_response = client.post(f"/api/v1/documents/{document_id}/review")
     assert review_response.status_code == 201
@@ -364,7 +464,9 @@ def test_list_reviews_for_document(monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        review_engine, "default_claude_service", ClaudeService(client=_FakeAnthropicClient(fake_response))
+        review_engine,
+        "_resolve_default_service",
+        lambda: ClaudeService(client=_FakeAnthropicClient(fake_response)),
     )
 
     review_response = client.post(f"/api/v1/documents/{document_id}/review")

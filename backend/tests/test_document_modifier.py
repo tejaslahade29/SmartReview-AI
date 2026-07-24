@@ -132,7 +132,7 @@ def _upload_and_review(monkeypatch) -> tuple[str, str, str]:
         ],
     )
     fake_service = ClaudeService(client=_FakeAnthropicClient(fake_response))
-    monkeypatch.setattr(review_engine, "default_claude_service", fake_service)
+    monkeypatch.setattr(review_engine, "_resolve_default_service", lambda: fake_service)
 
     review_response = client.post(f"/api/v1/documents/{document_id}/review")
     assert review_response.status_code == 201

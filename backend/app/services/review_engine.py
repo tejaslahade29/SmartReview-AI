@@ -9,14 +9,31 @@ This module owns the workflow only. It never talks to Anthropic directly
 
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationFailedError
 from app.models.document import DocumentParagraph
 from app.models.review import Review, ReviewFinding
 from app.services import agreement_detector, document_service, party_normalization_service, prompt_builder
 from app.services.claude_service import ClaudeService, claude_service as default_claude_service
+from app.services.gemini_service import GeminiService, gemini_service as default_gemini_service
 from app.services.review_validator import validate_findings
 
 _REVIEWABLE_LOCATIONS = {"body", "table_cell"}
+
+AIService = ClaudeService | GeminiService
+
+
+def _resolve_default_service() -> AIService:
+    """Which provider run_review falls back to when no service is passed
+    explicitly — controlled by settings.AI_PROVIDER. Tests that want a
+    fake service monkeypatch this function directly rather than the
+    per-provider default_*_service module attributes, so they aren't
+    coupled to whichever provider happens to be configured.
+    """
+    settings = get_settings()
+    if settings.AI_PROVIDER == "claude":
+        return default_claude_service
+    return default_gemini_service
 
 
 def _select_reviewable_clauses(
@@ -36,7 +53,7 @@ def _select_reviewable_clauses(
 
 
 def run_review(
-    db: Session, document_id: str, claude_service: ClaudeService | None = None
+    db: Session, document_id: str, ai_service: AIService | None = None
 ) -> Review:
     document = document_service.get_document_structure(db, document_id)
 
@@ -51,21 +68,21 @@ def run_review(
 
     prompt = prompt_builder.build_review_prompt(agreement_type, clauses)
 
-    service = claude_service or default_claude_service
-    claude_result = service.review_clauses(
+    service = ai_service or _resolve_default_service()
+    ai_result = service.review_clauses(
         system=prompt.system,
         user_message=prompt.user_message,
         json_schema=prompt.json_schema,
     )
 
     valid_paragraph_ids = {paragraph_id for paragraph_id, _ in clauses}
-    validated = validate_findings(claude_result.findings, valid_paragraph_ids)
+    validated = validate_findings(ai_result.findings, valid_paragraph_ids)
 
     review = Review(
         document_id=document.id,
         agreement_type=agreement_type,
         status="completed",
-        model_used=claude_result.model,
+        model_used=ai_result.model,
         party_mapping=[
             {"original_name": entry.original_name, "normalized_role": entry.normalized_role}
             for entry in normalization_result.mapping

@@ -66,6 +66,27 @@ class ClaudeResponseInvalidError(AppError):
     error_code = "claude_response_invalid"
 
 
+class AIServiceError(AppError):
+    """Provider-neutral equivalent of ClaudeServiceError, for non-Anthropic providers."""
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    error_code = "ai_service_error"
+
+
+class AIRefusalError(AppError):
+    """Provider-neutral equivalent of ClaudeRefusalError."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    error_code = "ai_refused"
+
+
+class AIResponseInvalidError(AppError):
+    """Provider-neutral equivalent of ClaudeResponseInvalidError."""
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+    error_code = "ai_response_invalid"
+
+
 def _error_response(status_code: int, error_code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
