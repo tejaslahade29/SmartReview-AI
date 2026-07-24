@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/contract_review"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5434/contract_review"
 
     JWT_SECRET_KEY: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
