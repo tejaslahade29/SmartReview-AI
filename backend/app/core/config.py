@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     CLAUDE_MAX_RETRIES: int = 2
 
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-flash-latest"
     GEMINI_MAX_OUTPUT_TOKENS: int = 8000
     GEMINI_TIMEOUT_SECONDS: float = 120.0
 
