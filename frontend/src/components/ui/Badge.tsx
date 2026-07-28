@@ -12,16 +12,19 @@ export type BadgeVariant = keyof typeof VARIANT_CLASSES;
 export function Badge({
   children,
   variant = "neutral",
+  icon,
   className = "",
 }: {
   children: React.ReactNode;
   variant?: BadgeVariant;
+  icon?: React.ReactNode;
   className?: string;
 }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${VARIANT_CLASSES[variant]} ${className}`}
     >
+      {icon}
       {children}
     </span>
   );

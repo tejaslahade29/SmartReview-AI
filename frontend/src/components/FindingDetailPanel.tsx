@@ -1,3 +1,5 @@
+import { Quote } from "lucide-react";
+
 import { ReviewFinding } from "@/lib/api/reviews";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { formatPercent } from "@/lib/format";
@@ -28,13 +30,24 @@ export function FindingDetailPanel({ finding }: { finding: ReviewFinding }) {
 
       {finding.suggested_text && (
         <Field label="Suggested Replacement">
-          <blockquote className="rounded-md border-l-2 border-foreground/30 bg-black/5 px-3 py-2 text-foreground/80 dark:bg-white/5">
+          <blockquote className="relative rounded-md border-l-2 border-foreground/30 bg-black/5 py-2 pl-8 pr-3 text-foreground/80 dark:bg-white/5">
+            <Quote className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-foreground/30" />
             {finding.suggested_text}
           </blockquote>
         </Field>
       )}
 
-      <Field label="Confidence">{formatPercent(finding.confidence)}</Field>
+      <Field label="Confidence">
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-32 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+            <div
+              className="h-full rounded-full bg-foreground"
+              style={{ width: `${Math.round(finding.confidence * 100)}%` }}
+            />
+          </div>
+          <span>{formatPercent(finding.confidence)}</span>
+        </div>
+      </Field>
 
       <Field label="Paragraph ID">
         <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs dark:bg-white/10">

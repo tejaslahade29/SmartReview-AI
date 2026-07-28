@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FileUp, Loader2 } from "lucide-react";
 
 const ACCEPTED_EXTENSION = ".docx";
 
@@ -46,6 +47,7 @@ export function FileDropzone({
     >
       {isUploading ? (
         <div className="flex w-full max-w-xs flex-col items-center gap-2">
+          <Loader2 className="mb-1 h-6 w-6 animate-spin text-foreground/50" />
           <p className="text-sm font-medium">Uploading and parsing…</p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
             <div
@@ -57,6 +59,9 @@ export function FileDropzone({
         </div>
       ) : (
         <>
+          <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-full bg-black/5 text-foreground/50 dark:bg-white/10">
+            <FileUp className="h-5 w-5" />
+          </div>
           <p className="text-sm font-medium">Drag & drop a DOCX contract here</p>
           <p className="text-xs text-foreground/60">or</p>
           <button

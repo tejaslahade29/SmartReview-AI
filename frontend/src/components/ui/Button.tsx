@@ -1,4 +1,6 @@
-import { ButtonHTMLAttributes } from "react";
+"use client";
+
+import { motion, type HTMLMotionProps } from "framer-motion";
 
 const VARIANT_CLASSES = {
   primary:
@@ -11,7 +13,8 @@ const VARIANT_CLASSES = {
 
 type ButtonVariant = keyof typeof VARIANT_CLASSES;
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
+  children?: React.ReactNode;
   variant?: ButtonVariant;
   isLoading?: boolean;
 }
@@ -25,7 +28,8 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.97 }}
       disabled={disabled || isLoading}
       className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${className}`}
       {...props}
@@ -34,6 +38,6 @@ export function Button({
         <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
       )}
       {children}
-    </button>
+    </motion.button>
   );
 }
