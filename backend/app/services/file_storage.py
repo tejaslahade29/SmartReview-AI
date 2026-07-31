@@ -28,6 +28,7 @@ def _reviewed_document_key(document_id: str, version: int) -> str:
 
 def _s3_client():
     import boto3
+    from botocore.config import Config
 
     settings = get_settings()
     return boto3.client(
@@ -36,6 +37,15 @@ def _s3_client():
         aws_access_key_id=settings.S3_ACCESS_KEY_ID,
         aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
         region_name=settings.S3_REGION,
+        # Non-AWS S3-compatible providers (Supabase, R2, ...) generally need
+        # path-style addressing, and reject boto3's newer default request/
+        # response checksum headers — both fail silently as an empty-message
+        # ClientError otherwise.
+        config=Config(
+            s3={"addressing_style": "path"},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
     )
 
 
