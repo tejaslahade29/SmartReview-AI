@@ -40,3 +40,13 @@ app.add_middleware(
 
 register_exception_handlers(app)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    """Unauthenticated root route so platform health checks (which
+    typically probe "/" by default) see a 200 instead of a 404 — without
+    it, hosts like Render mark the service unhealthy and stop routing
+    traffic to it even though the app itself is running fine.
+    """
+    return {"name": settings.APP_NAME, "status": "ok"}
