@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     DOCUMENT_STORAGE_DIR: str = "./storage/documents"
     MAX_UPLOAD_SIZE_MB: int = 25
 
+    # "local" (default, for dev — disk under DOCUMENT_STORAGE_DIR) or "s3"
+    # (any S3-compatible object store, e.g. Cloudflare R2 — required for
+    # hosted deployments where local disk doesn't survive a restart).
+    STORAGE_BACKEND: str = "local"
+    S3_BUCKET_NAME: str | None = None
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_REGION: str = "auto"
+
     # Which AI provider the Review Engine calls by default. Both providers'
     # settings can be configured at once (e.g. to keep a paid Claude key
     # ready while running on Gemini's free tier day-to-day) — this flag
