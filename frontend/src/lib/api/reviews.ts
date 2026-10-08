@@ -38,6 +38,9 @@ export async function fetchReview(reviewId: string): Promise<Review> {
 }
 
 export async function startReview(documentId: string): Promise<Review> {
-  const { data } = await apiClient.post<Review>(`/documents/${documentId}/review`);
+  const { data } = await apiClient.post<Review>(`/documents/${documentId}/review`, undefined, {
+    // The backend's AI call can run up to 120s per attempt, plus retries.
+    timeout: 240000,
+  });
   return data;
 }

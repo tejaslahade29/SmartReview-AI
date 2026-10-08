@@ -18,6 +18,9 @@ npm-debug.log*
 # Uploaded document storage
 backend/storage/
 
+# Demo recordings — large binaries, not project source
+demo-assets/
+
 # OS
 .DS_Store
 Thumbs.db

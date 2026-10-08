@@ -5,7 +5,8 @@ export const API_BASE_URL =
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  // Generous default: the hosted backend can take ~50s to wake from a cold start.
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
   },

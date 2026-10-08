@@ -10,6 +10,7 @@ it asks for JSON, and untrusted/malformed output is dropped later either way.
 
 import json
 import logging
+import time
 from dataclasses import dataclass
 
 from google import genai
@@ -21,6 +22,13 @@ from app.core.exceptions import AIRefusalError, AIResponseInvalidError, AIServic
 logger = logging.getLogger(__name__)
 
 _REFUSAL_FINISH_REASONS = {"SAFETY", "RECITATION", "PROHIBITED_CONTENT", "BLOCKLIST"}
+
+# Gemini's free tier regularly answers 503 "high demand" / 429 for a few
+# seconds at a time. Retry those with backoff, then try a lighter fallback
+# model before giving up. Anything else (bad key, bad request) fails fast.
+_TRANSIENT_CODES = {429, 500, 503, 504}
+_RETRY_DELAYS_SECONDS = (2, 5, 10)
+_FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite")
 
 
 @dataclass
@@ -73,21 +81,36 @@ class GeminiService:
     def review_clauses(self, system: str, user_message: str, json_schema: dict) -> GeminiReviewResult:
         settings = get_settings()
 
-        try:
-            response = self.client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=user_message,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    response_mime_type="application/json",
-                    response_schema=_to_gemini_schema(json_schema),
-                    max_output_tokens=settings.GEMINI_MAX_OUTPUT_TOKENS,
-                    http_options=types.HttpOptions(timeout=int(settings.GEMINI_TIMEOUT_SECONDS * 1000)),
-                ),
-            )
-        except Exception as exc:  # SDK error taxonomy isn't guaranteed stable across versions
-            logger.exception("Gemini API call failed")
-            raise AIServiceError(f"Gemini API error: {exc}") from exc
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            response_mime_type="application/json",
+            response_schema=_to_gemini_schema(json_schema),
+            max_output_tokens=settings.GEMINI_MAX_OUTPUT_TOKENS,
+            http_options=types.HttpOptions(timeout=int(settings.GEMINI_TIMEOUT_SECONDS * 1000)),
+        )
+        models = [settings.GEMINI_MODEL, *(m for m in _FALLBACK_MODELS if m != settings.GEMINI_MODEL)]
+        attempts = [(models[0], delay) for delay in (0, *_RETRY_DELAYS_SECONDS)]
+        attempts += [(m, 0) for m in models[1:]]
+
+        response = None
+        used_model = settings.GEMINI_MODEL
+        last_exc: Exception | None = None
+        for model, delay in attempts:
+            if delay:
+                time.sleep(delay)
+            try:
+                response = self.client.models.generate_content(model=model, contents=user_message, config=config)
+                used_model = model
+                break
+            except Exception as exc:  # SDK error taxonomy isn't guaranteed stable across versions
+                last_exc = exc
+                logger.warning("Gemini call failed on %s: %s", model, exc)
+                if getattr(exc, "code", None) not in _TRANSIENT_CODES:
+                    break
+
+        if response is None:
+            logger.error("Gemini API call failed", exc_info=last_exc)
+            raise AIServiceError(f"Gemini API error: {last_exc}") from last_exc
 
         candidates = response.candidates or []
         finish_reason = str(candidates[0].finish_reason) if candidates else "UNKNOWN"
@@ -113,7 +136,7 @@ class GeminiService:
         usage = response.usage_metadata
         return GeminiReviewResult(
             findings=findings,
-            model=settings.GEMINI_MODEL,
+            model=used_model,
             stop_reason=finish_reason,
             input_tokens=usage.prompt_token_count if usage else 0,
             output_tokens=usage.candidates_token_count if usage else 0,
